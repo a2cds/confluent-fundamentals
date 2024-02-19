@@ -1,0 +1,145 @@
+git clone --branch 7.1.1-v1.0.0 \
+  https://github.com/confluentinc/training-fundamentals-src.git \
+  ~/confluent-fundamentals
+
+
+kafka-console-consumer \
+  --bootstrap-server kafka:9092 \
+  --topic vehicle-positions
+
+
+kafka-topics --bootstrap-server kafka:9092 \
+  --create \
+  --topic vehicle-positions \
+  --partitions 6 \
+  --replication-factor 1
+
+kafka-topics --bootstrap-server kafka:9092 \
+  --describe \
+  --topic vehicle-positions
+
+
+kafka-topics --bootstrap-server kafka:9092 \
+  --create \
+  --topic test-topic \
+  --partitions 3 \
+  --replication-factor 1
+
+
+kafka-topics --bootstrap-server kafka:9092 \
+  --delete \
+  --topic test-topic
+
+
+kafka-topics --bootstrap-server kafka:9092 \
+  --create \
+  --topic sample-topic \
+  --partitions 3 \
+  --replication-factor 1
+
+
+kafka-console-producer --broker-list kafka:9092 \
+  --topic sample-topic
+
+
+kafka-console-consumer --bootstrap-server kafka:9092 \
+  --topic sample-topic \
+  --from-beginning
+
+
+kafka-console-producer --broker-list kafka:9092 \
+  --topic sample-topic \
+  --property parse.key=true \
+  --property key.separator=,
+
+
+kafka-console-consumer --bootstrap-server kafka:9092 \
+  --topic sample-topic \
+  --from-beginning \
+  --property print.key=true
+
+
+kafka-consumer-groups \
+  --bootstrap-server kafka:9092 \
+  --group vp-consumer \
+  --describe
+
+
+watch kafka-consumer-groups \
+  --bootstrap-server kafka:9092 \
+  --group vp-consumer \
+  --describe
+
+
+kafka-topics \
+  --bootstrap-server kafka:9092 \
+  --create \
+  --topic stations-avro \
+  --partitions 1 \
+  --replication-factor 1
+
+export SCHEMA='{
+  "type":"record",
+  "name":"station",
+  "fields":[
+  {"name":"city","type":"string"},
+  {"name":"country","type":"string"}
+  ]
+}'
+
+
+kafka-avro-console-producer \
+  --broker-list kafka:9092 \
+  --topic stations-avro \
+  --property schema.registry.url=http://schema-registry:8081 \
+  --property value.schema="$SCHEMA"
+
+
+{"city": "Pretoria", "country": "South Africa"}
+{"city": "Cairo", "country": "Egypt"}
+{"city": "Nairobi", "country": "Kenya"}
+{"city": "Addis Ababa", "country": "Ethiopia"}
+
+
+kafka-avro-console-consumer \
+  --bootstrap-server kafka:9092 \
+  --topic stations-avro \
+  --from-beginning \
+  --property schema.registry.url=http://schema-registry:8081
+
+
+kafka-topics --bootstrap-server kafka:9092 \
+  --create \
+  --topic vehicle-positions \
+  --partitions 6 \
+  --replication-factor 1
+
+
+curl -s -X POST -H 'Content-Type: application/json' -d '{
+  "name" : "mqtt-source",
+  "config" : {
+    "connector.class" : "io.confluent.connect.mqtt.MqttSourceConnector",
+    "tasks.max" : "1",
+    "mqtt.server.uri" : "tcp://mqtt.hsl.fi:1883",
+    "mqtt.topics" : "/hfp/v2/journey/ongoing/vp/train/#",
+    "kafka.topic" : "vehicle-positions",
+    "confluent.topic.bootstrap.servers": "kafka:9092",
+    "confluent.topic.replication.factor": "1",
+    "confluent.license":"",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.converters.ByteArrayConverter"
+    }
+  }' http://connect:8083/connectors | jq .
+
+
+curl -s http://connect:8083/connectors
+
+
+curl -s http://connect:8083/connectors/mqtt-source/status | jq .
+
+
+kafka-console-consumer --bootstrap-server kafka:9092 \
+  --topic vehicle-positions \
+  --from-beginning \
+  --max-messages 5
+
